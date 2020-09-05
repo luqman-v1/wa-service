@@ -20,31 +20,37 @@ type MessageBind struct {
 func SendMessage() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		var r MessageBind
-		_ = c.ShouldBindJSON(&r)
-		w := wa.NewWa()
-		wac, err := w.Conn()
+		err := c.ShouldBindJSON(&r)
 		if err != nil {
-			log.Panic(err)
+			log.Println(err)
 		}
+		w := wa.NewWa()
+		wac, _ := w.Conn()
 		nAuth := auth.NewAuth(wac)
-		_, err = nAuth.Login()
+		err = nAuth.CheckSession()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error logging in: %v\n", err)
-			c.JSON(http.StatusBadRequest, gin.H{
+			_, _ = fmt.Fprintf(os.Stderr, "error logging in: %v\n", err)
+			c.JSON(http.StatusUnauthorized, gin.H{
 				"message": "Session Expired",
 			})
+			return
 		}
-		log.Println("request", r)
+		log.Println("request ==>", r)
 		t := text.Text{
 			To:      r.To,
 			Message: r.Text,
 			Wac:     wac,
 		}
 		go func() {
-			t.SendMessage()
+			err := t.SendMessage()
+			if err != nil {
+				log.Println(err)
+			}
 		}()
-		c.JSON(200, gin.H{
-			"message": "Message Sended",
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Message has been processed",
 		})
+		return
 	}
 }

@@ -1,22 +1,17 @@
 package main
 
 import (
-    "github.com/joho/godotenv"
-    "log"
-    "wa-service/gate"
+	"log"
+	"wa-service/gate"
+
+	"github.com/joho/godotenv"
 )
 
-
-
 func main() {
-    //read file .env
-    err := godotenv.Load()
-    if err != nil {
-        log.Println("Error loading .env file")
-    }
-
-    gate.Route()
-
+	//read file .env
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Error loading .env file")
+	}
+	gate.Route()
 }
-
-
