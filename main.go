@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"wa-service/gate"
+	"wa-service/service/aws"
 
 	"github.com/joho/godotenv"
 )
@@ -13,5 +14,6 @@ func main() {
 	if err != nil {
 		log.Println("Error loading .env file")
 	}
+	aws.ConnectAws()
 	gate.Route()
 }

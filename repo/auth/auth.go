@@ -1,12 +1,15 @@
 package auth
 
 import (
+	"bytes"
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"wa-service/app"
+	"wa-service/repo/s3"
 
 	"github.com/Rhymen/go-whatsapp"
 	"github.com/skip2/go-qrcode"
@@ -81,13 +84,22 @@ func (a *Auth) Login() (string, error) {
 
 func (a *Auth) readSession() (whatsapp.Session, error) {
 	session := whatsapp.Session{}
-	file, err := os.Open(app.PATH_SESSION)
-	if err != nil {
-		return session, err
+	var file io.Reader
+	if os.Getenv("FILE_MANAGER") != "s3" {
+		file, err := os.Open(app.PATH_SESSION)
+		if err != nil {
+			return session, err
+		}
+		defer file.Close()
+	} else {
+		b, err := s3.Get(app.FILENAME_SESSION)
+		if err != nil {
+			return session, err
+		}
+		file = bytes.NewReader(b)
 	}
-	defer file.Close()
 	decoder := gob.NewDecoder(file)
-	err = decoder.Decode(&session)
+	err := decoder.Decode(&session)
 	if err != nil {
 		return session, err
 	}
@@ -105,10 +117,16 @@ func (a *Auth) writeSession(session whatsapp.Session) error {
 	if err != nil {
 		return err
 	}
+	_, _ = s3.Upload(app.FILENAME_SESSION, app.PATH_SESSION)
 	return nil
 }
 
 func (a *Auth) deleteSession() error {
+	err := s3.Delete(app.FILENAME_SESSION)
+	if err != nil {
+		log.Println("Failed Delete Session on S3", err)
+		return err
+	}
 	return os.Remove(app.PATH_SESSION)
 }
 
