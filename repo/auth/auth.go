@@ -1,11 +1,9 @@
 package auth
 
 import (
-	"bytes"
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"wa-service/app"
@@ -60,23 +58,34 @@ func (a *Auth) Login() (string, error) {
 		}
 		return "", errors.New("QR Code Has Been Scan")
 	} else {
+		log.Println("create qc code and session ...")
 		//no saved session -> regular login
 		qr := make(chan string)
 		go func() {
-			session, err = a.wac.Login(qr)
+			err := func() error {
+				session, err = a.wac.Login(qr)
+				log.Println("login ...", session, err)
+				if err != nil {
+					_ = fmt.Errorf("error during login: %v\n", err)
+					return err
+				}
+				//save session
+				err = a.writeSession(session)
+				if err != nil {
+					_ = fmt.Errorf("error saving session: %v\n", err)
+					return err
+				}
+				return err
+			}()
 			if err != nil {
-				_ = fmt.Errorf("error during login: %v\n", err)
 				return
 			}
-			//save session
-			err = a.writeSession(session)
-			if err != nil {
-				_ = fmt.Errorf("error saving session: %v\n", err)
-				return
-			}
-			return
 		}()
-		_ = qrcode.WriteFile(<-qr, qrcode.Medium, 256, app.PATH_FILE+filename)
+		err = qrcode.WriteFile(<-qr, qrcode.Medium, 256, app.PATH_FILE+filename)
+		if err != nil {
+			log.Println("err at writefile ...", err)
+			return "", err
+		}
 	}
 
 	return filename, nil
@@ -84,22 +93,13 @@ func (a *Auth) Login() (string, error) {
 
 func (a *Auth) readSession() (whatsapp.Session, error) {
 	session := whatsapp.Session{}
-	var file io.Reader
-	if os.Getenv("FILE_MANAGER") != "s3" {
-		file, err := os.Open(app.PATH_SESSION)
-		if err != nil {
-			return session, err
-		}
-		defer file.Close()
-	} else {
-		b, err := s3.Get(app.FILENAME_SESSION)
-		if err != nil {
-			return session, err
-		}
-		file = bytes.NewReader(b)
+	file, err := os.Open(app.PATH_SESSION)
+	if err != nil {
+		return session, err
 	}
+	defer file.Close()
 	decoder := gob.NewDecoder(file)
-	err := decoder.Decode(&session)
+	err = decoder.Decode(&session)
 	if err != nil {
 		return session, err
 	}
@@ -122,11 +122,6 @@ func (a *Auth) writeSession(session whatsapp.Session) error {
 }
 
 func (a *Auth) deleteSession() error {
-	err := s3.Delete(app.FILENAME_SESSION)
-	if err != nil {
-		log.Println("Failed Delete Session on S3", err)
-		return err
-	}
 	return os.Remove(app.PATH_SESSION)
 }
 

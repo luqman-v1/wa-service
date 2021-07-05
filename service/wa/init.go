@@ -14,8 +14,9 @@ type Wa struct {
 }
 
 func (w *Wa) Conn() (*whatsapp.Conn, error) {
+	version := os.Getenv("Major") + "." + os.Getenv("Minor") + "." + os.Getenv("Path")
 	wac, err := whatsapp.NewConn(5 * time.Second)
-	_ = wac.SetClientName(os.Getenv("LongClientName"), os.Getenv("ShortClientName"))
+	err = wac.SetClientName(os.Getenv("LongClientName"), os.Getenv("ShortClientName"), version)
 	if err != nil {
 		log.Fatal("error creating connection", err)
 		return nil, err

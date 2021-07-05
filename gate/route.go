@@ -2,6 +2,7 @@ package gate
 
 import (
 	"net/http"
+	"os"
 	"wa-service/action/auth"
 	"wa-service/action/message"
 	"wa-service/app"
@@ -22,5 +23,5 @@ func Route() {
 	r.GET("/logout", auth.LogOut())
 	r.POST("/send/message", message.SendMessage())
 	r.Use(gin.Recovery())
-	_ = r.Run()
+	_ = r.Run(":" + os.Getenv("PORT"))
 }

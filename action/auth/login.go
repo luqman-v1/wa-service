@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"wa-service/app"
@@ -17,6 +18,7 @@ func Login() func(c *gin.Context) {
 		wac, err := w.Conn()
 		nAuth := auth.NewAuth(wac)
 		filename, err := nAuth.Login()
+		log.Println("err filename", err)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "error logging in: %v\n", err)
 			c.JSON(http.StatusBadRequest, gin.H{
