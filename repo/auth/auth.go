@@ -2,16 +2,17 @@ package auth
 
 import (
 	"encoding/gob"
-	"errors"
 	"fmt"
 	"log"
 	"os"
 	"wa-service/app"
-	"wa-service/repo/s3"
+	"wa-service/entity"
 
 	"github.com/Rhymen/go-whatsapp"
 	"github.com/skip2/go-qrcode"
 )
+
+const QRCODE_FILENAME = "qr.png"
 
 type Auth struct {
 	wac *whatsapp.Conn
@@ -23,6 +24,7 @@ func NewAuth(wac *whatsapp.Conn) *Auth {
 	}
 }
 
+//CheckSession wa
 func (a *Auth) CheckSession() error {
 	session, err := a.readSession()
 	if err != nil {
@@ -41,8 +43,9 @@ func (a *Auth) CheckSession() error {
 	return nil
 }
 
-func (a *Auth) Login() (string, error) {
-	filename := "qr.png"
+//Login and show qr code
+func (a *Auth) Login() (entity.Auth, error) {
+	filename := QRCODE_FILENAME
 	//load saved session
 	session, err := a.readSession()
 	if err == nil {
@@ -52,13 +55,13 @@ func (a *Auth) Login() (string, error) {
 			err = a.deleteSession()
 			if err != nil {
 				log.Println("Failed Delete session", err)
-				return "", err
+				return entity.Auth{}, err
 			}
 			return a.Login()
 		}
-		return "", errors.New("QR Code Has Been Scan")
+		return entity.Auth{}, app.ErrorAlreadyScanned()
 	} else {
-		log.Println("create qc code and session ...")
+		log.Println("create qr code and session ...")
 		//no saved session -> regular login
 		qr := make(chan string)
 		go func() {
@@ -81,16 +84,15 @@ func (a *Auth) Login() (string, error) {
 				return
 			}
 		}()
-		err = qrcode.WriteFile(<-qr, qrcode.Medium, 256, app.PATH_FILE+filename)
-		if err != nil {
-			log.Println("err at writefile ...", err)
-			return "", err
+		if err = qrcode.WriteFile(<-qr, qrcode.Medium, 256, app.PATH_FILE+filename); err != nil {
+			log.Println("err at write file ...", err)
+			return entity.Auth{}, err
 		}
 	}
-
-	return filename, nil
+	return entity.Auth{FileName: filename}, nil
 }
 
+//read session from local file
 func (a *Auth) readSession() (whatsapp.Session, error) {
 	session := whatsapp.Session{}
 	file, err := os.Open(app.PATH_SESSION)
@@ -99,13 +101,13 @@ func (a *Auth) readSession() (whatsapp.Session, error) {
 	}
 	defer file.Close()
 	decoder := gob.NewDecoder(file)
-	err = decoder.Decode(&session)
-	if err != nil {
+	if err = decoder.Decode(&session); err != nil {
 		return session, err
 	}
 	return session, nil
 }
 
+//write session
 func (a *Auth) writeSession(session whatsapp.Session) error {
 	file, err := os.Create(app.PATH_SESSION)
 	if err != nil {
@@ -113,23 +115,24 @@ func (a *Auth) writeSession(session whatsapp.Session) error {
 	}
 	defer file.Close()
 	encoder := gob.NewEncoder(file)
-	err = encoder.Encode(session)
-	if err != nil {
+	if err = encoder.Encode(session); err != nil {
 		return err
 	}
-	_, _ = s3.Upload(app.FILENAME_SESSION, app.PATH_SESSION)
 	return nil
 }
 
+//delete session file gob on local storage
 func (a *Auth) deleteSession() error {
 	return os.Remove(app.PATH_SESSION)
 }
 
+// LogOut logout session wa
 func (a *Auth) LogOut() error {
-	err := a.wac.Logout()
-	if err != nil {
+	if err := a.wac.Logout(); err != nil {
 		return err
 	}
-	_ = a.deleteSession()
+	if err := a.deleteSession(); err != nil {
+		return err
+	}
 	return nil
 }

@@ -17,7 +17,7 @@ func Login() func(c *gin.Context) {
 		w := wa.NewWa()
 		wac, err := w.Conn()
 		nAuth := auth.NewAuth(wac)
-		filename, err := nAuth.Login()
+		auth, err := nAuth.Login()
 		log.Println("err filename", err)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "error logging in: %v\n", err)
@@ -27,7 +27,7 @@ func Login() func(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"message": http.Dir(app.PATH_FILE + filename),
+			"message": http.Dir(app.PATH_FILE + auth.FileName),
 		})
 	}
 }

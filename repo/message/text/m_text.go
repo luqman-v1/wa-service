@@ -16,7 +16,6 @@ type Text struct {
 
 func (t *Text) SendMessage() error {
 	<-time.After(3 * time.Second)
-
 	msg := whatsapp.TextMessage{
 		Info: whatsapp.MessageInfo{
 			RemoteJid: app.WidToJid(t.To),
